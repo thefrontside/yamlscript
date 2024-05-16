@@ -85,7 +85,32 @@ export function createYSEnv(parent = global): PSEnv {
       } else if (value.type === "map") {
         let entries: [PSMapKey, PSValue][] = [];
         for (let [k, v] of value.value.entries()) {
-          entries.push([k, yield* env.eval(v)]);
+          let target = yield* env.eval(v);
+          if (k.type === "string" && !k.quote && k.value == "<<") {
+            if (target.type === "map") {
+              for (let [subkey, subvalue] of target.value.entries()) {
+                entries.push([subkey, subvalue]);
+              }
+            } else if (target.type === "list") {
+              for (let item of target.value) {
+                if (item.type === "map") {
+                  for (let [subkey, subvalue] of item.value.entries()) {
+                    entries.push([subkey, subvalue]);
+                  }
+                } else {
+                  throw new Error(
+                    `merge key value must be either a map, or a sequence of maps`,
+                  );
+                }
+              }
+            } else {
+              throw new Error(
+                `merge key value must be either a map, or a sequence of maps`,
+              );
+            }
+          } else {
+            entries.push([k, target]);
+          }
         }
         return { type: "map", value: new Map(entries) };
       } else if (value.type === "list") {
